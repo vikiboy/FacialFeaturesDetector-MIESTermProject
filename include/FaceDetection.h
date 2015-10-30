@@ -52,9 +52,20 @@ namespace FaceDetection {
         //! Analyze the vector of feature points
         void pointAnalyzer(std::vector<StatModel::ASMFitResult> &fitResults,StatModel::ASMModel* asmModel);
 
+        //! Process results
+        void processResults(std::vector<std::vector<std::vector<double> > > attribs,std::vector<double> outputLabels);
+
+        //! Save results to file
+        void saveResults(double chinCircumference,double chinExtreme_distance,double eyebrow_centroidDistance,double eyebrow_farExtreme,double eyebrow_nearExtreme,double avg_topbottomEyeDistance,
+                         double avg_leftrightEyeDistance,double LeftEyebrowEye,double RightEyebrowEye,double mouthNoseDistance,double mouth_sideExtremeDistance,double mouth_topExtremeDistance,double outputLabel);
+
+        //! Create a results file
+        void createResultsFile();
+
     private:
 
-        std::vector<std::vector<double> > m_Matrix; //to store the attributes along with the output label
+        std::vector<std::vector<std::vector<double> > > m_Matrix; //to store the attributes along with the output label
+        std::vector<std::vector<double> > m_perImage;
         std::vector<double> m_labels; //output label
         std::vector<StatModel::ASMFitResult> m_pointResults; //for analyzing points
         StatModel::ASMModel m_asmModel;
@@ -66,6 +77,12 @@ namespace FaceDetection {
         std::string m_asdModelPath;
         std::string m_modelDir;
         std::string m_fileName;
+
+        std::string m_resultsFile;
     };
 }
+
+
+void CallBackFunc(int event, int x, int y, int flags, void* userdata);
+
 #endif

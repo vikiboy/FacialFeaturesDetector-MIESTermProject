@@ -1,7 +1,7 @@
 #include "FaceDetection.h"
 
 FaceDetection::FacialFeaturesDetector::FacialFeaturesDetector(std::string classifierDir, std::string asmModelsDir){
-    std::string face_cascade_name = classifierDir+"haarcascade_frontalface_alt.xml";
+    std::string face_cascade_name = classifierDir+"haarcascade_frontalface_alt_tree.xml";
     std::string eyes_cascade_name = classifierDir+"haarcascade_eye_tree_eyeglasses.xml";
     std::string mouth_cascade_name = classifierDir+"haarcascade_mcs_mouth.xml";
     std::string nose_cascade_name = classifierDir+"haarcascade_mcs_nose.xml";
@@ -33,10 +33,17 @@ void FaceDetection::FacialFeaturesDetector::loadDirectory(std::string pathToFold
             std::cout<<imagePath<<std::endl;
             this->showCurrentImage(imagePath);
             this->processFileNames(imagePath);
+            this->m_Matrix.push_back(this->m_perImage);
+            this->m_perImage.clear();
+            std::cout<<"Size of the m_Matrix : "<<m_Matrix.size()<<std::endl;
+//            std::cout<<"Size of the perImage vector : "<<(this->m_perImage.size())/3<<std::endl;
         }
-        for(int i=0;i<this->m_labels.size();i++){
-            std::cout<<this->m_labels[i]<<std::endl;
-        }
+        this->createResultsFile();
+        this->processResults(m_Matrix,m_labels);
+
+//        for(int i=0;i<this->m_labels.size();i++){
+//            std::cout<<this->m_labels[i]<<std::endl;
+//        }
 
     }
 
@@ -59,33 +66,40 @@ void FaceDetection::FacialFeaturesDetector::processFileNames(std::string filePat
 
     if(processFileName.compare("AN") ==0 ){
         this->m_labels.push_back(0);
+        std::cout<<"Expression : 0"<<std::endl;
     }
 
     else if(processFileName.compare("DI") == 0){
         this->m_labels.push_back(1);
+        std::cout<<"Expression : 1"<<std::endl;
     }
 
     else if(processFileName.compare("FE") == 0){
         this->m_labels.push_back(2);
+        std::cout<<"Expression : 2"<<std::endl;
     }
 
     else if(processFileName.compare("HA") == 0){
         this->m_labels.push_back(3);
+        std::cout<<"Expression : 3"<<std::endl;
     }
 
 
     else if(processFileName.compare("NE") == 0){
         this->m_labels.push_back(4);
+        std::cout<<"Expression : 4"<<std::endl;
     }
 
 
     else if(processFileName.compare("SA") == 0){
         this->m_labels.push_back(5);
+        std::cout<<"Expression : 5"<<std::endl;
     }
 
 
     else if(processFileName.compare("SU") == 0){
         this->m_labels.push_back(6);
+        std::cout<<"6"<<std::endl;
     }
 
 }
@@ -103,19 +117,118 @@ void FaceDetection::FacialFeaturesDetector::searchAndFit(StatModel::ASMModel &as
     StatModel::ASMModel* checking_asmModel;
     checking_asmModel=&asmModel;
     asmModel.showResult(frame,fitResult);
-    cv::waitKey(0);
     this->pointAnalyzer(fitResult,checking_asmModel);
+//    cv::waitKey(0);
 
 }
 
 void FaceDetection::FacialFeaturesDetector::pointAnalyzer(std::vector<StatModel::ASMFitResult> &fitResults, StatModel::ASMModel *asmModel){
     std::vector<cv::Point > checkingPoints;
     fitResults[0].toPointList(checkingPoints);
-    std::cout<<checkingPoints.size()<<std::endl;
-    std::cout<<fitResults.size()<<std::endl;
-    for(int i=0;i<checkingPoints.size();i++){
-        std::cout<<"("<<checkingPoints[i].x<<","<<checkingPoints[i].y<<")"<<std::endl;
+
+    // Analyzing the chin
+    std::vector<double> chinSum;
+    for(int i=8;i<=21;i++){
+
+        chinSum.push_back(cv::norm(cv::Mat(checkingPoints[i]),cv::Mat(checkingPoints[i+1])));
     }
+    double chinFinalSum=0;
+    for(int i=0;i<chinSum.size();i++){
+        chinFinalSum+=chinSum[i];
+    }
+    std::cout<<"Chin Circumference: "<<chinFinalSum<<std::endl;
+    double chinExtreme_distance = cv::norm(cv::Mat((checkingPoints[19]+checkingPoints[20])*.5),cv::Mat((checkingPoints[9]+checkingPoints[10])*.5));
+    std::cout<<"Chin Extreme Distance: "<<chinExtreme_distance<<std::endl;
+
+    std::vector<double> chinAttribs; //Final Chin Attribs Stored here
+    chinAttribs.push_back(chinFinalSum); //Adding the Chin Circumference
+    chinAttribs.push_back(chinExtreme_distance); //Adding the distance between between Chin extremities
+
+    //Analyzing the Eye and Eyebrow Distance
+    std::vector<double> EyesEyebrowsAttribs;
+
+    //Left Eyebrow
+    cv::Mat leftEyebrow_centroid(cv::Point(0,0));
+    for(int i=28;i<=33;i++){//Left Eyebrow Centroid
+        leftEyebrow_centroid+=cv::Mat(checkingPoints[i]);
+//        std::cout<<"Left Eye "<<i-27<<" : "<<checkingPoints[i]<<std::endl;
+    }
+    leftEyebrow_centroid=leftEyebrow_centroid*(1.0/6.0);
+//    std::cout<<"Left Eyebrow Centroid : "<<leftEyebrow_centroid<<std::endl;
+
+    //Right Eyebrow
+    cv::Mat rightEyebrow_centroid(cv::Point(0,0));
+    for(int i=22;i<=27;i++){//Right Eyebrow Centroid
+        rightEyebrow_centroid+=cv::Mat(checkingPoints[i]);
+//        std::cout<<"Right Eye "<<i-21<<" : "<<checkingPoints[i]<<std::endl;
+    }
+    rightEyebrow_centroid=rightEyebrow_centroid*(1.0/6.0);
+//    std::cout<<"Right Eyebrow Centroid : "<<leftEyebrow_centroid<<std::endl;
+
+    //Distance between left and right eyebrow extremes - near,far and the centroid
+    double eyebrow_nearExtreme=cv::norm(cv::Mat(checkingPoints[25]),cv::Mat(checkingPoints[31]));  //attribs
+    double eyebrow_farExtreme=cv::norm(cv::Mat(checkingPoints[22]),cv::Mat(checkingPoints[28])); //attribs
+    double eyebrow_centroidDistance = cv::norm(leftEyebrow_centroid,rightEyebrow_centroid); //attribs
+
+
+    std::cout<<"Eyebrow Near Extreme : "<<eyebrow_nearExtreme<<" , Eyebrow Far Extreme : "<<eyebrow_farExtreme<<" , Eyebrow Centroid : "<<eyebrow_centroidDistance<<std::endl;
+
+    //Left Eye
+    cv::Mat leftEye_centroid(cv::Point(0,0));
+    cv::Mat rightEye_centroid(cv::Point(0,0));
+    for(int i=34;i<=38;i++){
+        leftEye_centroid+=cv::Mat(checkingPoints[i]);
+    }
+    leftEye_centroid=leftEye_centroid*(1.0/5.0);
+    //Right Eye
+    for(int i=39;i<=43;i++){
+        rightEye_centroid+=cv::Mat(checkingPoints[i]);
+    }
+    rightEye_centroid=rightEye_centroid*(1.0/5.0);
+//    std::cout<<"Left Eye Centroid : "<<leftEye_centroid<<" Right Eye Centroid : "<<rightEye_centroid<<std::endl;
+
+    //Distance between top and bottom
+    double avg_topbottomEyeDistance=(cv::norm(cv::Mat(checkingPoints[35]),cv::Mat(checkingPoints[37]))+cv::norm(cv::Mat(checkingPoints[40]),cv::Mat(checkingPoints[42])))/2; //attribs
+    double avg_leftrightEyeDistance=(cv::norm(cv::Mat(checkingPoints[34]),cv::Mat(checkingPoints[36]))+cv::norm(cv::Mat(checkingPoints[39]),cv::Mat(checkingPoints[41])))/2; //attribs
+    double centroidDistanceLeftEyebrowEye=cv::norm(leftEyebrow_centroid,leftEye_centroid); //attribs
+    double centroidDistanceRightEyebrowEye=cv::norm(rightEyebrow_centroid,rightEye_centroid); //attribs
+
+    EyesEyebrowsAttribs.push_back(eyebrow_centroidDistance); //Adding the Distance between the centroids of the two eyebrows
+    EyesEyebrowsAttribs.push_back(eyebrow_farExtreme); //Adding the Distance between the far extremities of the two eyebrows
+    EyesEyebrowsAttribs.push_back(eyebrow_nearExtreme); //Adding the Distance between the near extremities of the two eyebrows
+    EyesEyebrowsAttribs.push_back(avg_topbottomEyeDistance); //Adding the average distance between the top and bottom of both eyes
+    EyesEyebrowsAttribs.push_back(avg_leftrightEyeDistance); //Adding the average distance between the left and right extremities of both eyes
+    EyesEyebrowsAttribs.push_back(centroidDistanceLeftEyebrowEye); //Adding the distance between left eyebrow and left eye
+    EyesEyebrowsAttribs.push_back(centroidDistanceRightEyebrowEye); //Adding the distance between right eyebrow and right eye
+
+    std::cout<<"Top Bottom Eye Distance : "<<avg_topbottomEyeDistance<<" , Left Right Eye Distance : "<<avg_leftrightEyeDistance<<std::endl;
+    std::cout<<"Left Eye Eyebrow Distance : "<<centroidDistanceLeftEyebrowEye<<" , Right Eye Eyebrow Distance : "<<centroidDistanceRightEyebrowEye<<std::endl;
+
+    //Analyzing the Mouth, Nose and Chin Features
+
+    std::vector<double> mouthNoseAttribs;
+
+    double avg_noseExtremeDistance=(cv::norm(cv::Mat(checkingPoints[46]),cv::Mat(checkingPoints[50]))+cv::norm(cv::Mat(checkingPoints[47]),cv::Mat(checkingPoints[49])))/2; //attribs
+    cv::Mat outerMouth_centroid(cv::Point(0,0));
+    for(int i=55;i<=66;i++){
+        outerMouth_centroid+=cv::Mat(checkingPoints[i]);
+    }
+    outerMouth_centroid=outerMouth_centroid/12.0;
+    double mouthNoseDistance =cv::norm(outerMouth_centroid,cv::Mat(checkingPoints[74])); //attribs
+    double mouth_sideExtremeDistance=cv::norm(cv::Mat((checkingPoints[55]+checkingPoints[66])*.5),cv::Mat((checkingPoints[61]+checkingPoints[62])*.5)); //attribs
+    double mouth_topExtremeDistance=cv::norm(cv::Mat((checkingPoints[57]+checkingPoints[58]+checkingPoints[59]*(1/3.0))),cv::Mat((checkingPoints[63]+checkingPoints[64]+checkingPoints[65])*(1/3.0))); //attribs
+
+    std::cout<<"Mouth to Nose Distance : "<<mouthNoseDistance<<" , Mouth Side Extremes : "<<mouth_sideExtremeDistance<<" , Mouth Top Bottom Distance : "<<mouth_topExtremeDistance<<std::endl;
+    std::cout<<"Nose Extreme Distance : "<<avg_noseExtremeDistance<<std::endl;
+
+    mouthNoseAttribs.push_back(mouthNoseDistance); //Adding the Distance between the Mouth to Nose
+    mouthNoseAttribs.push_back(mouth_sideExtremeDistance); //Adding the Distance between side extremities of the mouth
+    mouthNoseAttribs.push_back(mouth_topExtremeDistance); //Adding the Distance between the top extremities of the mouth
+
+    this->m_perImage.push_back(chinAttribs);
+    this->m_perImage.push_back(EyesEyebrowsAttribs);
+    this->m_perImage.push_back(mouthNoseAttribs);
+
 }
 
 void FaceDetection::FacialFeaturesDetector::detectAndDisplay(cv::Mat frame){
@@ -180,4 +293,97 @@ void FaceDetection::FacialFeaturesDetector::detectAndDisplay(cv::Mat frame){
     cv::imshow( this->m_window_name,frame);
     cv::waitKey(0);
 
+}
+
+void FaceDetection::FacialFeaturesDetector::processResults(std::vector<std::vector<std::vector<double> > > attribs, std::vector<double> outputLabels){
+    double chinFinalSum,chinExtremeDistance,eyebrowcentroidDistance,eyebrowfarExtreme,eyebrownearExtreme,avgtopBottomEyeDistance,
+            avgleftRightEyeDistance,LeftEyebrow_Eye,RightEyebrow_Eye,mouthNose_Distance,mouthsideExtremeDistance,mouthtopExtremeDistance;
+
+    for(int i=0;i<attribs.size();i++){
+        for(int j=0;j<attribs[i].size();j++){
+            for(int k=0;k<attribs[i][j].size();k++){
+                if(j==0){
+                    if(k==0){
+                        chinFinalSum=attribs[i][j][k];
+                    }
+                    else if(k==1){
+                        chinExtremeDistance=attribs[i][j][k];
+                    }
+                }
+                else if(j==1){
+                    if(k==0){
+                        eyebrowcentroidDistance=attribs[i][j][k];
+                    }
+                    else if(k==1){
+                        eyebrowfarExtreme=attribs[i][j][k];
+                    }
+                    else if(k==2){
+                        eyebrownearExtreme=attribs[i][j][k];
+                    }
+                    else if(k==3){
+                        avgtopBottomEyeDistance=attribs[i][j][k];
+                   }
+                    else if(k==4){
+                        avgleftRightEyeDistance=attribs[i][j][k];
+                    }
+                    else if(k==5){
+                        LeftEyebrow_Eye=attribs[i][j][k];
+                    }
+                    else if(k==6){
+                        RightEyebrow_Eye=attribs[i][j][k];
+                    }
+
+                }
+                else if(j==2){
+                    if(k==0){
+                        mouthNose_Distance=attribs[i][j][k];
+                    }
+                    if(k==1){
+                        mouthsideExtremeDistance=attribs[i][j][k];
+                    }
+                    if(k==2){
+                        mouthtopExtremeDistance=attribs[i][j][k];
+                    }
+                }
+            }
+        }
+        this->saveResults(chinFinalSum,chinExtremeDistance,eyebrowcentroidDistance,eyebrowfarExtreme,eyebrownearExtreme,avgtopBottomEyeDistance,avgleftRightEyeDistance,LeftEyebrow_Eye,
+                          RightEyebrow_Eye,mouthNose_Distance,mouthsideExtremeDistance,mouthtopExtremeDistance,outputLabels[i]);
+    }
+
+}
+
+void FaceDetection::FacialFeaturesDetector::saveResults(double chinCircumference, double chinExtreme_distance, double eyebrow_centroidDistance, double eyebrow_farExtreme, double eyebrow_nearExtreme, double avg_topbottomEyeDistance,
+                                                        double avg_leftrightEyeDistance, double LeftEyebrowEye, double RightEyebrowEye, double mouthNoseDistance, double mouth_sideExtremeDistance, double mouth_topExtremeDistance, double outputLabel){
+    std::ofstream outfile;
+    outfile.open(m_resultsFile.c_str(),std::ofstream::app);
+    outfile<<"\t"<<chinCircumference<<"\t"<<chinExtreme_distance<<"\t"<<eyebrow_centroidDistance<<"\t"<<eyebrow_farExtreme<<"\t"<<eyebrow_nearExtreme<<"\t"<<avg_topbottomEyeDistance<<"\t"
+             <<avg_leftrightEyeDistance<<"\t"<<LeftEyebrowEye<<"\t"<<RightEyebrowEye<<"\t"<<mouthNoseDistance<<"\t"<<mouth_sideExtremeDistance<<"\t"<<mouth_topExtremeDistance<<"\t"<<outputLabel<<"\n";
+    outfile.close();
+}
+
+void FaceDetection::FacialFeaturesDetector::createResultsFile(){
+    m_resultsFile="FacialFeaturesJaffe.csv";
+    std::ofstream myfile;
+    myfile.open(m_resultsFile.c_str(),std::ofstream::app);
+    myfile<<"\t"<<"Chin_Circumference"<<"\t"<<"Chin_extremitiesDistance"<<"\t"<<"EyeBrow_CentroidDistance"<<"\t"<<"EyeBrow_farExtreme"<<"\t"<<"EyeBrow_nearExtreme"<<"\t"<<"avg_TopBottomEyeDistance"<<"\t"
+             <<"avg_LeftRightEyeDistance"<<"\t"<<"LeftEyebrowEyes"<<"\t"<<"RightEyebrowEyes"<<"\t"<<"mouthNoseDistance"<<"\t"<<"mouthSideExtreme"<<"\t"<<"mouthTopExtremeDistance"<<"\t"<<"Emotion"<<"\n";
+    myfile.close();
+
+}
+
+void CallBackFunc(int event, int x, int y, int flags, void* userdata)
+{
+     if  ( event == CV_EVENT_LBUTTONDOWN )
+     {
+          std::cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << std::endl;
+     }
+     else if  ( event == CV_EVENT_RBUTTONDOWN )
+     {
+          std::cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << std::endl;
+     }
+     else if  ( event == CV_EVENT_MBUTTONDOWN )
+     {
+          std::cout << "Middle button of the mouse is clicked - position (" << x << ", " << y << ")" << std::endl;
+     }
 }

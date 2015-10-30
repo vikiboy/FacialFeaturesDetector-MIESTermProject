@@ -36,4 +36,6 @@ private:
     const char COMMENT_CHAR;
 };
 }
+
+void CallBackFunc(int event, int x, int y, int flags, void* userdata);
 #endif // AFREADER_H

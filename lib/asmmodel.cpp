@@ -200,8 +200,10 @@ void ASMModel::showResult(Mat& img, const vector< ASMFitResult >& res)
 
     if (!img.empty())
         cv::namedWindow("Active Shape Model",CV_WINDOW_FREERATIO);
+        cv::setMouseCallback("Active Shape Model",CallBackFunc,NULL);
         imshow("Active Shape Model", mb);
 }
+
 
 ASMFitResult ASMModel::fit(const cv::Mat& img, int verbose)
 {
