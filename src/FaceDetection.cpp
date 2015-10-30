@@ -1,3 +1,8 @@
+/* Author : Vikram Mohanty
+ * IIT Kharagpur
+ * vikram.mohanty.1993@gmail.com
+ * */
+
 #include "FaceDetection.h"
 
 FaceDetection::FacialFeaturesDetector::FacialFeaturesDetector(std::string classifierDir, std::string asmModelsDir){

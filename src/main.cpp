@@ -1,3 +1,8 @@
+/* Author : Vikram Mohanty
+ * IIT Kharagpur
+ * vikram.mohanty.1993@gmail.com
+ * */
+
 #include "FaceDetection.h"
 
 cv::RNG rng(12345);

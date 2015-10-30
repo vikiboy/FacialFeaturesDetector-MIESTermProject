@@ -1,3 +1,9 @@
+/* Author : Vikram Mohanty
+ * IIT Kharagpur
+ * vikram.mohanty.1993@gmail.com
+ * */
+
+
 #ifndef __FACEDETECTION__H__
 #define __FACEDETECTION__H__
 
