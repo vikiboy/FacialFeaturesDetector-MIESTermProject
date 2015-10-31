@@ -6,8 +6,8 @@
 #include "FaceDetection.h"
 
 FaceDetection::FacialFeaturesDetector::FacialFeaturesDetector(std::string classifierDir, std::string asmModelsDir){
-    std::string face_cascade_name = classifierDir+"haarcascade_frontalface_alt_tree.xml";
-    std::string eyes_cascade_name = classifierDir+"haarcascade_eye_tree_eyeglasses.xml";
+    std::string face_cascade_name = classifierDir+"haarcascade_frontalface_alt2.xml";
+    std::string eyes_cascade_name = classifierDir+"haarcascade_lefteye_2splits.xml";
     std::string mouth_cascade_name = classifierDir+"haarcascade_mcs_mouth.xml";
     std::string nose_cascade_name = classifierDir+"haarcascade_mcs_nose.xml";
     this->m_modelDir=asmModelsDir;
@@ -41,6 +41,7 @@ void FaceDetection::FacialFeaturesDetector::loadDirectory(std::string pathToFold
             this->m_Matrix.push_back(this->m_perImage);
             this->m_perImage.clear();
             std::cout<<"Size of the m_Matrix : "<<m_Matrix.size()<<std::endl;
+            cv::waitKey(0);
 //            std::cout<<"Size of the perImage vector : "<<(this->m_perImage.size())/3<<std::endl;
         }
         this->createResultsFile();
@@ -58,7 +59,7 @@ void FaceDetection::FacialFeaturesDetector::showCurrentImage(std::string filePat
     cv::Mat currentFrame = cv::imread(filePath,CV_LOAD_IMAGE_COLOR);
     this->readASMModel(m_asmModel,m_asdModelPath);
     this->searchAndFit(m_asmModel,m_face_cascade,currentFrame,0);
-//    this->detectAndDisplay(currentFrame);
+    this->detectAndDisplay(currentFrame);
 }
 
 void FaceDetection::FacialFeaturesDetector::processFileNames(std::string filePath){
@@ -222,6 +223,8 @@ void FaceDetection::FacialFeaturesDetector::pointAnalyzer(std::vector<StatModel:
     double mouthNoseDistance =cv::norm(outerMouth_centroid,cv::Mat(checkingPoints[74])); //attribs
     double mouth_sideExtremeDistance=cv::norm(cv::Mat((checkingPoints[55]+checkingPoints[66])*.5),cv::Mat((checkingPoints[61]+checkingPoints[62])*.5)); //attribs
     double mouth_topExtremeDistance=cv::norm(cv::Mat((checkingPoints[57]+checkingPoints[58]+checkingPoints[59]*(1/3.0))),cv::Mat((checkingPoints[63]+checkingPoints[64]+checkingPoints[65])*(1/3.0))); //attribs
+    double noseChinDistance=(cv::norm(cv::Mat((checkingPoints[45]+checkingPoints[46])*.5),cv::Mat((checkingPoints[19]+checkingPoints[20])*.5))
+            +cv::norm(cv::Mat((checkingPoints[50]+checkingPoints[51])*.5),cv::Mat((checkingPoints[19]+checkingPoints[20])*.5))/2); //attribs
 
     std::cout<<"Mouth to Nose Distance : "<<mouthNoseDistance<<" , Mouth Side Extremes : "<<mouth_sideExtremeDistance<<" , Mouth Top Bottom Distance : "<<mouth_topExtremeDistance<<std::endl;
     std::cout<<"Nose Extreme Distance : "<<avg_noseExtremeDistance<<std::endl;
@@ -229,6 +232,7 @@ void FaceDetection::FacialFeaturesDetector::pointAnalyzer(std::vector<StatModel:
     mouthNoseAttribs.push_back(mouthNoseDistance); //Adding the Distance between the Mouth to Nose
     mouthNoseAttribs.push_back(mouth_sideExtremeDistance); //Adding the Distance between side extremities of the mouth
     mouthNoseAttribs.push_back(mouth_topExtremeDistance); //Adding the Distance between the top extremities of the mouth
+    mouthNoseAttribs.push_back(noseChinDistance); //Adding the Distance between the chin and nose
 
     this->m_perImage.push_back(chinAttribs);
     this->m_perImage.push_back(EyesEyebrowsAttribs);
@@ -244,11 +248,19 @@ void FaceDetection::FacialFeaturesDetector::detectAndDisplay(cv::Mat frame){
     cv::equalizeHist( frame_gray, frame_gray );
     this->m_window_name="Facial Features";
 
+    std::vector<double> cascadeAttribs;
+
     //-- Detect faces
-    m_face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, cv::Size(30, 30) );
+    m_face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, Size(30, 30) );
 
     for( std::size_t i = 0; i < faces.size(); i++ )
      {
+       cv::Mat eyeimg;
+       cv::Rect roi1 = cv::Rect((int)faces[i].x,                   /* x = start from leftmost */
+                    (int)faces[i].y,                          /* y = from the leftmost */
+                    (int) faces[i].width,                       /* width = same width with the face */
+                    (int)(faces[i].height)/2 ) ;               /* height = 1/2 of face height */
+       eyeimg = frame_gray(roi1);
        cv::Point center( faces[i].x + faces[i].width/2, faces[i].y + faces[i].height/2 );
        cv::ellipse( frame, center, cv::Size( faces[i].width/2, faces[i].height/2), 0, 0, 360, cv::Scalar( 255, 0, 255 ), 2, 8, 0 );
 
@@ -256,18 +268,36 @@ void FaceDetection::FacialFeaturesDetector::detectAndDisplay(cv::Mat frame){
        std::vector<cv::Rect> eyes;
 
        //-- In each face, detect eyes
-       m_eyes_cascade.detectMultiScale( faceROI, eyes, 1.1, 2, 0 |CV_HAAR_SCALE_IMAGE, cv::Size(30, 30) );
+       m_eyes_cascade.detectMultiScale( eyeimg, eyes, 1.1, 2, 0 |CV_HAAR_SCALE_IMAGE, cv::Size(30, 30) );
 
        for( std::size_t j = 0; j < eyes.size(); j++ )
         {
           cv::Point eye_center( faces[i].x + eyes[j].x + eyes[j].width/2, faces[i].y + eyes[j].y + eyes[j].height/2 );
-          int radius = cvRound( (eyes[j].width + eyes[j].height)*0.25 );
-          cv::circle( frame, eye_center, radius, cv::Scalar( 255, 0, 0 ), 3, 8, 0 );
+          int radius = cvRound( (eyes[j].width + eyes[j].height)*0.20 );
+          cv::circle( frame, eye_center, radius, cv::Scalar( 255, 0, 0 ), 2, 8, 0 );
+          if(eyes.size()==2){
+              cascadeAttribs.push_back(radius);//attribs
+              cascadeAttribs.push_back(eyes[j].width);//attribs
+              cascadeAttribs.push_back(eyes[j].height);//attribs
+          }
+          else if(eyes.size()==1){
+              cascadeAttribs.push_back(radius);//attribs
+              cascadeAttribs.push_back(eyes[j].width);//attribs
+              cascadeAttribs.push_back(eyes[j].height);//attribs
+              cascadeAttribs.push_back(radius);//attribs
+              cascadeAttribs.push_back(eyes[j].width);//attribs
+              cascadeAttribs.push_back(eyes[j].height);//attribs
+          }
         }
 
-       std::vector<cv::Rect> mouth;
+       cv::Mat mouthImg;
+       cv::Rect roi2 = cv::Rect((int)faces[i].x,                   /* x = start from leftmost */
+                (int)faces[i].y+((faces[i].height)*2/3),    /* y = a few pixels from the top */
+               (int) faces[i].width,                       /* width = same width with the face */
+                (int)(faces[i].height)/3 ) ;               /* height = 1/3 of face height */
+       mouthImg = frame_gray(roi2);       std::vector<cv::Rect> mouth;
        std::vector<cv::Rect> nose;
-       m_mouth_cascade.detectMultiScale( faceROI, mouth, 1.1, 2, 0 |CV_HAAR_SCALE_IMAGE, cv::Size(30, 30) );
+       m_mouth_cascade.detectMultiScale(mouthImg, mouth, 1.1, 2, 0 |CV_HAAR_SCALE_IMAGE, cv::Size(30, 30) );
        m_nose_cascade.detectMultiScale( faceROI, nose, 1.1, 2, 0 |CV_HAAR_SCALE_IMAGE, cv::Size(30, 30) );
 
        for(int k=0; k<mouth.size(); k++)
@@ -276,23 +306,26 @@ void FaceDetection::FacialFeaturesDetector::detectAndDisplay(cv::Mat frame){
            cv::Point center_ell( faces[i].x + mouth[k].x + mouth[k].width*0.5, faces[i].y+(faces[i].height)*2/3+ mouth[k].y + mouth[k].height*0.5 );
            cv::Size RectSize(mouth[k].width,mouth[k].height);
            int axes = cvRound((mouth[k].width+mouth[k].height)*0.20);
+//           std::cout<<"Mouth Width : "<<mouth[k].width;
+//           std::cout<<" , Mouth Height : "<<mouth[k].height<<std::endl;
 
            box = cv::RotatedRect(center_ell,RectSize,0);
            cv::ellipse(frame, box, cv::Scalar(255,0,0),2,8);
-
-
+           cascadeAttribs.push_back(mouth[k].width); //attribs
+           cascadeAttribs.push_back(mouth[k].height); //attribs
            //circle(cap_img, center, radius, Scalar(255,0,0), 2, 8, 0);
        }
 
-       for( std::size_t j = 0; j < nose.size(); j++ )
-        {
-          cv::Point nose_center( faces[i].x + nose[j].x + nose[j].width/2, faces[i].y + nose[j].y + nose[j].height/2 );
-          int radius = cvRound( (nose[j].width + nose[j].height)*0.25 );
-          cv::circle( frame, nose_center, radius, cv::Scalar( 0, 255, 0 ), 3, 8, 0 );
-        }
+//       for( std::size_t j = 0; j < nose.size(); j++ )
+//        {
+//          cv::Point nose_center( faces[i].x + nose[j].x + nose[j].width/2, faces[i].y + nose[j].y + nose[j].height/2 );
+//          int radius = cvRound( (nose[j].width + nose[j].height)*0.25 );
+//          cv::circle( frame, nose_center, radius, cv::Scalar( 0, 255, 0 ), 3, 8, 0 );
+//        }
 
 
      }
+    this->m_perImage.push_back(cascadeAttribs);
     //-- Show what you got
     cv::namedWindow(this->m_window_name,CV_WINDOW_AUTOSIZE);
     cv::imshow( this->m_window_name,frame);
@@ -302,7 +335,8 @@ void FaceDetection::FacialFeaturesDetector::detectAndDisplay(cv::Mat frame){
 
 void FaceDetection::FacialFeaturesDetector::processResults(std::vector<std::vector<std::vector<double> > > attribs, std::vector<double> outputLabels){
     double chinFinalSum,chinExtremeDistance,eyebrowcentroidDistance,eyebrowfarExtreme,eyebrownearExtreme,avgtopBottomEyeDistance,
-            avgleftRightEyeDistance,LeftEyebrow_Eye,RightEyebrow_Eye,mouthNose_Distance,mouthsideExtremeDistance,mouthtopExtremeDistance;
+            avgleftRightEyeDistance,LeftEyebrow_Eye,RightEyebrow_Eye,mouthNose_Distance,mouthsideExtremeDistance,mouthtopExtremeDistance,
+            noseChinDistance,leftEyeRadius,leftEyeWidth,leftEyeHeight,rightEyeRadius,rightEyeWidth,rightEyeHeight,mouthWidth,mouthHeight;
 
     for(int i=0;i<attribs.size();i++){
         for(int j=0;j<attribs[i].size();j++){
@@ -343,27 +377,61 @@ void FaceDetection::FacialFeaturesDetector::processResults(std::vector<std::vect
                     if(k==0){
                         mouthNose_Distance=attribs[i][j][k];
                     }
-                    if(k==1){
+                    else if(k==1){
                         mouthsideExtremeDistance=attribs[i][j][k];
                     }
-                    if(k==2){
+                    else if(k==2){
                         mouthtopExtremeDistance=attribs[i][j][k];
+                    }
+                    else if(k==3){
+                        noseChinDistance=attribs[i][j][k];
+                    }
+                }
+                else if(j==3){
+                    if(k==0){
+                        leftEyeRadius=attribs[i][j][k];
+                    }
+                    else if(k==1){
+                        leftEyeWidth=attribs[i][j][k];
+                    }
+                    else if(k==2){
+                        leftEyeHeight=attribs[i][j][k];
+                    }
+                    else if(k==3){
+                        rightEyeRadius=attribs[i][j][k];
+                    }
+                    else if(k==4){
+                        rightEyeWidth=attribs[i][j][k];
+                    }
+                    else if(k==5){
+                        rightEyeHeight=attribs[i][j][k];
+                    }
+                    else if(k==6){
+                        mouthWidth=attribs[i][j][k];
+                    }
+                    else if(k==7){
+                        mouthHeight=attribs[i][j][k];
                     }
                 }
             }
         }
         this->saveResults(chinFinalSum,chinExtremeDistance,eyebrowcentroidDistance,eyebrowfarExtreme,eyebrownearExtreme,avgtopBottomEyeDistance,avgleftRightEyeDistance,LeftEyebrow_Eye,
-                          RightEyebrow_Eye,mouthNose_Distance,mouthsideExtremeDistance,mouthtopExtremeDistance,outputLabels[i]);
+                          RightEyebrow_Eye,mouthNose_Distance,mouthsideExtremeDistance,mouthtopExtremeDistance,noseChinDistance,leftEyeRadius,leftEyeWidth,leftEyeHeight,rightEyeRadius,
+                          rightEyeWidth,rightEyeHeight,mouthWidth,mouthHeight,outputLabels[i]);
     }
 
 }
 
 void FaceDetection::FacialFeaturesDetector::saveResults(double chinCircumference, double chinExtreme_distance, double eyebrow_centroidDistance, double eyebrow_farExtreme, double eyebrow_nearExtreme, double avg_topbottomEyeDistance,
-                                                        double avg_leftrightEyeDistance, double LeftEyebrowEye, double RightEyebrowEye, double mouthNoseDistance, double mouth_sideExtremeDistance, double mouth_topExtremeDistance, double outputLabel){
+                                                        double avg_leftrightEyeDistance, double LeftEyebrowEye, double RightEyebrowEye, double mouthNoseDistance, double mouth_sideExtremeDistance, double mouth_topExtremeDistance,
+                                                        double nose_ChinDistance, double leftEyeRadius,double leftEyeWidth,double leftEyeHeight,double rightEyeRadius, double rightEyeWidth, double rightEyeHeight,
+                                                        double mouthWidth, double mouthHeight, double outputLabel){
     std::ofstream outfile;
     outfile.open(m_resultsFile.c_str(),std::ofstream::app);
-    outfile<<"\t"<<chinCircumference<<"\t"<<chinExtreme_distance<<"\t"<<eyebrow_centroidDistance<<"\t"<<eyebrow_farExtreme<<"\t"<<eyebrow_nearExtreme<<"\t"<<avg_topbottomEyeDistance<<"\t"
-             <<avg_leftrightEyeDistance<<"\t"<<LeftEyebrowEye<<"\t"<<RightEyebrowEye<<"\t"<<mouthNoseDistance<<"\t"<<mouth_sideExtremeDistance<<"\t"<<mouth_topExtremeDistance<<"\t"<<outputLabel<<"\n";
+    outfile<<chinCircumference<<"\t"<<chinExtreme_distance<<"\t"<<eyebrow_centroidDistance<<"\t"<<eyebrow_farExtreme<<"\t"<<eyebrow_nearExtreme<<"\t"<<avg_topbottomEyeDistance<<"\t"
+             <<avg_leftrightEyeDistance<<"\t"<<LeftEyebrowEye<<"\t"<<RightEyebrowEye<<"\t"<<mouthNoseDistance<<"\t"<<mouth_sideExtremeDistance<<"\t"<<mouth_topExtremeDistance<<"\t"<<nose_ChinDistance<<"\t"
+            <<leftEyeRadius<<"\t"<<leftEyeWidth<<"\t"<<leftEyeHeight<<"\t"<<rightEyeRadius<<"\t"<<rightEyeWidth<<"\t"<<rightEyeHeight<<"\t"
+           <<mouthWidth<<"\t"<<mouthHeight<<"\t"<<outputLabel<<"\n";
     outfile.close();
 }
 
@@ -371,8 +439,10 @@ void FaceDetection::FacialFeaturesDetector::createResultsFile(){
     m_resultsFile="FacialFeaturesJaffe.csv";
     std::ofstream myfile;
     myfile.open(m_resultsFile.c_str(),std::ofstream::app);
-    myfile<<"\t"<<"Chin_Circumference"<<"\t"<<"Chin_extremitiesDistance"<<"\t"<<"EyeBrow_CentroidDistance"<<"\t"<<"EyeBrow_farExtreme"<<"\t"<<"EyeBrow_nearExtreme"<<"\t"<<"avg_TopBottomEyeDistance"<<"\t"
-             <<"avg_LeftRightEyeDistance"<<"\t"<<"LeftEyebrowEyes"<<"\t"<<"RightEyebrowEyes"<<"\t"<<"mouthNoseDistance"<<"\t"<<"mouthSideExtreme"<<"\t"<<"mouthTopExtremeDistance"<<"\t"<<"Emotion"<<"\n";
+    myfile<<"Chin_Circumference"<<"\t"<<"Chin_extremitiesDistance"<<"\t"<<"EyeBrow_CentroidDistance"<<"\t"<<"EyeBrow_farExtreme"<<"\t"<<"EyeBrow_nearExtreme"<<"\t"<<"avg_TopBottomEyeDistance"<<"\t"
+             <<"avg_LeftRightEyeDistance"<<"\t"<<"LeftEyebrowEyes"<<"\t"<<"RightEyebrowEyes"<<"\t"<<"mouthNoseDistance"<<"\t"<<"mouthSideExtreme"<<"\t"<<"mouthTopExtremeDistance"<<"\t"<<"noseChinDistance"<<"\t"
+            <<"EyeRadius1"<<"\t"<<"EyeWidth1"<<"\t"<<"EyeHeight1"<<"\t"<<"EyeRadius2"<<"\t"<<"EyeWidth2"<<"\t"<<"EyeHeight2"<<"\t"<<"MouthWidth"<<"\t"<<"MouthHeight"<<"\t"
+           <<"Emotion"<<"\n";
     myfile.close();
 
 }

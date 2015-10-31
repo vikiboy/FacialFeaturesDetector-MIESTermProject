@@ -62,8 +62,10 @@ namespace FaceDetection {
         void processResults(std::vector<std::vector<std::vector<double> > > attribs,std::vector<double> outputLabels);
 
         //! Save results to file
-        void saveResults(double chinCircumference,double chinExtreme_distance,double eyebrow_centroidDistance,double eyebrow_farExtreme,double eyebrow_nearExtreme,double avg_topbottomEyeDistance,
-                         double avg_leftrightEyeDistance,double LeftEyebrowEye,double RightEyebrowEye,double mouthNoseDistance,double mouth_sideExtremeDistance,double mouth_topExtremeDistance,double outputLabel);
+        void saveResults(double chinCircumference, double chinExtreme_distance, double eyebrow_centroidDistance, double eyebrow_farExtreme, double eyebrow_nearExtreme,
+                                                                double avg_topbottomEyeDistance, double avg_leftrightEyeDistance, double LeftEyebrowEye, double RightEyebrowEye, double mouthNoseDistance,
+                                                                double mouth_sideExtremeDistance, double mouth_topExtremeDistance, double nose_ChinDistance, double leftEyeRadius,double leftEyeWidth,
+                                                                double leftEyeHeight,double rightEyeRadius, double rightEyeWidth, double rightEyeHeight, double mouthWidth, double mouthHeight, double outputLabel);
 
         //! Create a results file
         void createResultsFile();
