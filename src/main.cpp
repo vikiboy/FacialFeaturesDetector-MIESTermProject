@@ -13,7 +13,9 @@ int main( int argc, char* argv[] )
 {
   FaceDetection::FacialFeaturesDetector detector(classifierDir,asmModelsDir);
   detector.loadDirectory("/home/vikiboy/Desktop/FaceDetection-MIES/datasets/jaffeimages/jaffe");
+//  detector.captureImage();
   return 0;
+
 }
 
 

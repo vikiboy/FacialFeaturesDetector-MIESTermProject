@@ -55,11 +55,42 @@ void FaceDetection::FacialFeaturesDetector::loadDirectory(std::string pathToFold
 
 }
 
+void FaceDetection::FacialFeaturesDetector::captureImage(){
+    cv::VideoCapture cap(0);
+    if(!cap.isOpened()){
+        std::cout<<"Camera not loaded"<<std::endl;
+        throw("Camera not laoded");
+    }
+
+    cv::Mat cameraCapture;
+    cv::namedWindow("CameraCapture",CV_WINDOW_AUTOSIZE);
+    this->readASMModel(m_asmModel,m_asdModelPath);
+    this->createResultsFile();
+    for(;;){
+        cv::Mat frame;
+        cap.read(frame);
+        cv::cvtColor(frame,cameraCapture,CV_BGR2GRAY);
+        cv::imshow("CameraCapture",cameraCapture);
+        cv::Mat editImage;
+        editImage=cameraCapture;
+        this->searchAndFit(m_asmModel,m_face_cascade,editImage,0);
+        this->detectAndDisplay(editImage);
+        this->m_Matrix.push_back(this->m_perImage);
+        this->m_perImage.clear();
+        if(cv::waitKey(30)>=0){
+            this->processResults(m_Matrix,m_labels);
+            std::cout<<"Writing Results"<<std::endl;
+            break;
+        }
+    }
+}
+
 void FaceDetection::FacialFeaturesDetector::showCurrentImage(std::string filePath){
     cv::Mat currentFrame = cv::imread(filePath,CV_LOAD_IMAGE_COLOR);
     this->readASMModel(m_asmModel,m_asdModelPath);
     this->searchAndFit(m_asmModel,m_face_cascade,currentFrame,0);
     this->detectAndDisplay(currentFrame);
+//    this->detectflandmark(currentFrame,m_face_cascade);
 }
 
 void FaceDetection::FacialFeaturesDetector::processFileNames(std::string filePath){
@@ -420,6 +451,40 @@ void FaceDetection::FacialFeaturesDetector::processResults(std::vector<std::vect
                           rightEyeWidth,rightEyeHeight,mouthWidth,mouthHeight,outputLabels[i]);
     }
 
+}
+
+void FaceDetection::FacialFeaturesDetector::detectflandmark(cv::Mat &frame, cv::CascadeClassifier &objCascadeClassifier){
+    int* bbox = (int*)malloc(4*sizeof(int));
+    FLANDMARK_Model* model = flandmark_init("../FaceDetection/data/flandmark_model.dat");
+    if(model==0){
+        std::cout<<"Structure Model wasn't created. Corrupted file flandmark_model.data ?"<<std::endl;
+        throw("--(!)Error loading Structure Model");
+    }
+    double* landmarks = (double*)malloc(2*model->data.options.M*sizeof(double));
+    cv::Mat frameGray;
+    cv::cvtColor(frame,frameGray,cv::COLOR_BGR2GRAY);
+    std::vector<cv::Rect> faces;
+    IplImage* frame_gray = new IplImage(frameGray);
+    objCascadeClassifier.detectMultiScale(frame_gray,faces,1.2,2,CV_HAAR_SCALE_IMAGE,cv::Size(60,60));
+    for(int i=0;i<faces.size();i++){
+        bbox[0]=faces[i].x;
+        bbox[1]=faces[i].y;
+        bbox[2]=faces[i].x+faces[i].width;
+        bbox[2]=faces[i].y+faces[i].height;
+        flandmark_detect(frame_gray,bbox,model,landmarks);
+        // display landmarks
+        cv::rectangle(frame, cv::Point(bbox[0], bbox[1]), cv::Point(bbox[2], bbox[3]), cv::Scalar(255,0,0) );
+        cv::rectangle(frame, cv::Point(model->bb[0], model->bb[1]), cv::Point(model->bb[2], model->bb[3]), cv::Scalar(0,0,255) );
+        cv::circle(frame, cv::Point((int)landmarks[0], (int)landmarks[1]), 3, cv::Scalar(0, 0,255), CV_FILLED);
+        for (int i = 2; i < 2*model->data.options.M; i += 2)
+        {
+            cv::circle(frame, cv::Point(int(landmarks[i]), int(landmarks[i+1])), 3, cv::Scalar(255,0,0), CV_FILLED);
+
+        }
+    }
+    cv::namedWindow("FlandMarkWindow",CV_WINDOW_FREERATIO);
+    cv::imshow("FlandMarkWindow",frame);
+    cv::waitKey(0);
 }
 
 void FaceDetection::FacialFeaturesDetector::saveResults(double chinCircumference, double chinExtreme_distance, double eyebrow_centroidDistance, double eyebrow_farExtreme, double eyebrow_nearExtreme, double avg_topbottomEyeDistance,

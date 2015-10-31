@@ -16,6 +16,7 @@
 #include <algorithm>
 #include "asmmodel.h"
 #include "modelfile.h"
+#include "flandmark_detector.h"
 #include "opencv2/objdetect/objdetect.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -40,6 +41,9 @@ namespace FaceDetection {
         //! Loading the training data
         void loadDirectory(std::string pathToFolder);
 
+        //! Load the camera
+        void captureImage();
+
         //! For detecting with HAAR Classifiers - Face, Eyes, Mouth and Nose
         void detectAndDisplay( cv::Mat frame );
 
@@ -60,6 +64,9 @@ namespace FaceDetection {
 
         //! Process results
         void processResults(std::vector<std::vector<std::vector<double> > > attribs,std::vector<double> outputLabels);
+
+        //! Detect using Flandmark models
+        void detectflandmark(cv::Mat &frame, cv::CascadeClassifier &objCascadeClassifier);
 
         //! Save results to file
         void saveResults(double chinCircumference, double chinExtreme_distance, double eyebrow_centroidDistance, double eyebrow_farExtreme, double eyebrow_nearExtreme,

@@ -7,6 +7,8 @@ INCLUDE_DIRECTORIES(
         include/
         ${PROJECT_SOURCE_DIR}/lib/
         lib/
+        ${PROJECT_SOURCE_DIR}/libflandmark/
+        libflandmark/
         ${CMAKE_CURRENT_BINARY_DIR}
 )
 
@@ -42,5 +44,6 @@ SET(SOURCE_FILES
 )
 
 ADD_SUBDIRECTORY(lib)
+add_subdirectory(libflandmark)
 ADD_EXECUTABLE(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES})
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} asm ${NEEDED_LIBS})
+TARGET_LINK_LIBRARIES(${PROJECT_NAME} flandmark_shared asm ${NEEDED_LIBS})
